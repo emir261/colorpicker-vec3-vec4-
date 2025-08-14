@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Color Picker → vec3/vec4 (Dark Mode + Stylish UI + Alpha)</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/monolith.min.css"/>
+<title>🎨 Circular Color Picker with Gradient Value & Alpha</title>
 <style>
 body {
     font-family: 'Segoe UI', sans-serif;
@@ -26,36 +25,24 @@ body {
 
 h1 { margin-bottom: 20px; font-weight: 500; letter-spacing: 1px; }
 
+#pickerCanvas {
+    cursor: crosshair;
+    border-radius: 50%;
+    margin: 0 auto 15px auto;
+    display: block;
+    background: #000;
+}
+
 #preview {
     width: 120px;
     height: 120px;
-    margin: 0 auto 15px auto;
+    margin: 15px auto;
     border-radius: 50%;
     border: 2px solid #444;
     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     position: relative;
     overflow: hidden;
-}
-
-/* Checkerboard pattern */
-#checker {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background-color: #fff;
-    background-image: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%);
-}
-
-#colorLayer {
-    position: absolute;
-    top:0; left:0;
-    width:100%;
-    height:100%;
-    border-radius:50%;
-    pointer-events:none;
+    background-color: red;
 }
 
 #vecOutput {
@@ -82,132 +69,201 @@ button {
 button:hover { background-color: #444; transform: scale(1.05); }
 .active { background-color: #ff4444; color: #fff; }
 
-#color-picker { display: flex; justify-content: center; margin-top: 15px; }
-
-.pcr-button {
-    width: 60px !important;
-    height: 60px !important;
-    border-radius: 50% !important;
-    border: 2px solid #ff0000 !important;
-    box-shadow: 0 0 10px rgba(255,0,0,0.5) !important;
-    cursor: pointer;
-}
-
-#alphaSlider {
-    width: 200px;
+input[type="range"] {
+    width: 220px;
     margin-top: 10px;
     -webkit-appearance: none;
     appearance: none;
-    background: #2d2d2d;
-    height: 6px;
-    border-radius: 3px;
+    height: 12px;
+    border-radius: 6px;
     outline: none;
     box-sizing: border-box;
+    background: linear-gradient(to right, #000, red);
 }
-#alphaSlider::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: #ff4444;
+    background: #fff;
     cursor: pointer;
-    border: 2px solid #fff;
-    margin-top: -6px;
+    border: 2px solid #ff4444;
+    margin-top: -4px;
 }
-#alphaSlider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: #ff4444;
+    background: #fff;
     cursor: pointer;
-    border: 2px solid #fff;
+    border: 2px solid #ff4444;
 }
 </style>
 </head>
 <body>
-
 <div id="container">
-  <h1>🎨 Color Picker (vec3 / vec4)</h1>
+  <h1>🎨 Circular Color Picker</h1>
 
-  <div id="preview">
-    <div id="checker"></div>
-    <div id="colorLayer"></div>
+  <canvas id="pickerCanvas" width="300" height="300"></canvas>
+
+  <div style="margin-top:15px;">
+    <label>Brightness / Value: <span id="valueLabel">1.00</span></label><br>
+    <input type="range" id="valueSlider" min="0" max="1" step="0.01" value="1">
   </div>
 
-  <div id="color-picker"></div>
-
-  <label>Alpha: <span id="alphaValue">1.00</span></label><br>
-  <input type="range" id="alphaSlider" min="0" max="1" step="0.01" value="1">
+  <div style="margin-top:20px;">
+    <label>Alpha: <span id="alphaValue">1.00</span></label><br>
+    <input type="range" id="alphaSlider" min="0" max="1" step="0.01" value="1">
+  </div>
 
   <div style="margin-top: 15px;">
-    <button id="prec2">2 Decimals</button>
+    <button id="prec2" class="active">2 Decimals</button>
     <button id="prec4">4 Decimals</button>
   </div>
 
-  <div style="margin-top: 20px; text-align: center;">
-    <h2>Output</h2>
-    <div style="margin-bottom: 10px;">
-      <button id="showVec3" class="active">vec3</button>
-      <button id="showVec4">vec4</button>
-    </div>
-    <div id="vecOutput">vec3: -, vec4: -</div>
+  <div style="margin-top: 10px;">
+    <button id="showVec3" class="active">vec3</button>
+    <button id="showVec4">vec4</button>
   </div>
+
+  <div id="preview"></div>
+  <div id="vecOutput">vec3: -, vec4: -</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr"></script>
 <script>
-let precision = 2;
-let currentMode = 'vec3';
+const canvas = document.getElementById('pickerCanvas');
+const ctx = canvas.getContext('2d');
+const radius = canvas.width/2;
+
+const preview = document.getElementById('preview');
 const vecOutput = document.getElementById('vecOutput');
-const prec2 = document.getElementById('prec2');
-const prec4 = document.getElementById('prec4');
-const colorLayer = document.getElementById('colorLayer');
 const alphaSlider = document.getElementById('alphaSlider');
 const alphaValueLabel = document.getElementById('alphaValue');
-const showVec3 = document.getElementById('showVec3');
-const showVec4 = document.getElementById('showVec4');
+const valueSlider = document.getElementById('valueSlider');
+const valueLabel = document.getElementById('valueLabel');
 
-const pickr = Pickr.create({
-    el: '#color-picker',
-    theme: 'monolith',
-    default: '#ff0000',
-    components: {
-        preview: true,
-        hue: true,
-        opacity: true,
-        interaction: { hex: true, rgba: true, input: true }
-    }
-});
+let precision = 2;
+let currentMode = 'vec3';
+let hue=0, sat=1, val=1, alpha=1;
+let markerPos = [radius, radius];
 
-function updateOutput(rgba) {
-    const alpha = parseFloat(alphaSlider.value);
-    const r = (rgba[0]/255).toFixed(precision);
-    const g = (rgba[1]/255).toFixed(precision);
-    const b = (rgba[2]/255).toFixed(precision);
-    const a = alpha.toFixed(precision);
-
-    const vec3Text = `vec3: (${r}, ${g}, ${b})`;
-    const vec4Text = `vec4: (${r}, ${g}, ${b}, ${a})`;
-    vecOutput.textContent = currentMode === 'vec3' ? vec3Text : vec4Text;
-
-    colorLayer.style.backgroundColor = `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${alpha})`;
-    alphaValueLabel.textContent = a;
-
-    showVec3.classList.toggle('active', currentMode === 'vec3');
-    showVec4.classList.toggle('active', currentMode === 'vec4');
+// HSV -> RGB
+function hsvToRgb(h,s,v){
+    let c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c;
+    let r=0,g=0,b=0;
+    if(h>=0 && h<60){r=c;g=x;b=0;}
+    else if(h>=60 && h<120){r=x;g=c;b=0;}
+    else if(h>=120 && h<180){r=0;g=c;b=x;}
+    else if(h>=180 && h<240){r=0;g=x;b=c;}
+    else if(h>=240 && h<300){r=x;g=0;b=c;}
+    else {r=c;g=0;b=x;}
+    return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
 }
 
-pickr.on('change', (color) => { updateOutput(color.toRGBA()); });
-alphaSlider.addEventListener('input', () => { updateOutput(pickr.getColor().toRGBA()); });
-prec2.addEventListener('click', () => { precision = 2; updateOutput(pickr.getColor().toRGBA()); });
-prec4.addEventListener('click', () => { precision = 4; updateOutput(pickr.getColor().toRGBA()); });
-showVec3.addEventListener('click', () => { currentMode='vec3'; updateOutput(pickr.getColor().toRGBA()); });
-showVec4.addEventListener('click', () => { currentMode='vec4'; updateOutput(pickr.getColor().toRGBA()); });
+// Draw hue wheel
+function drawColorWheel(){
+    const image = ctx.createImageData(canvas.width,canvas.height);
+    for(let y=-radius;y<radius;y++){
+        for(let x=-radius;x<radius;x++){
+            const dx=x, dy=y;
+            const dist=Math.sqrt(dx*dx+dy*dy);
+            if(dist>radius) continue;
+            const angle=Math.atan2(dy,dx);
+            const hueAt=(angle/(2*Math.PI)+0.5)*360;
+            const satAt=dist/radius;
+            const rgb=hsvToRgb(hueAt,satAt,1);
+            const px=x+radius, py=y+radius;
+            const idx=(py*canvas.width+px)*4;
+            image.data[idx]=rgb[0];
+            image.data[idx+1]=rgb[1];
+            image.data[idx+2]=rgb[2];
+            image.data[idx+3]=255;
+        }
+    }
+    ctx.putImageData(image,0,0);
+}
 
-updateOutput(pickr.getColor().toRGBA());
+// Draw wheel + marker
+function drawColorWheelWithMarker(){
+    drawColorWheel();
+    ctx.beginPath();
+    ctx.arc(markerPos[0], markerPos[1], 6, 0, 2*Math.PI);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+// Pick color from wheel
+function pickColor(e){
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - radius;
+    const y = e.clientY - rect.top - radius;
+    const dist=Math.sqrt(x*x+y*y);
+    if(dist>radius) return;
+    const angle=Math.atan2(y,x);
+    hue=(angle/(2*Math.PI)+0.5)*360;
+    sat=dist/radius;
+    markerPos = [x+radius, y+radius];
+    updatePreview();
+    drawColorWheelWithMarker();
+}
+
+// Update preview & vec
+function updatePreview(){
+    val=parseFloat(valueSlider.value);
+    alpha=parseFloat(alphaSlider.value);
+    const rgb = hsvToRgb(hue,sat,val);
+    preview.style.backgroundColor=`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+    alphaValueLabel.textContent=alpha.toFixed(precision);
+    valueLabel.textContent=val.toFixed(precision);
+    const r=(rgb[0]/255).toFixed(precision);
+    const g=(rgb[1]/255).toFixed(precision);
+    const b=(rgb[2]/255).toFixed(precision);
+    const a=alpha.toFixed(precision);
+    vecOutput.textContent=currentMode==='vec3'?`vec3: (${r}, ${g}, ${b})`:`vec4: (${r}, ${g}, ${b}, ${a})`;
+    // Update gradient of value slider dynamically
+    const endColor = hsvToRgb(hue,sat,1);
+    valueSlider.style.background = `linear-gradient(to right, #000, rgb(${endColor[0]},${endColor[1]},${endColor[2]}))`;
+}
+
+// Events
+canvas.addEventListener('mousedown', e=>{
+    pickColor(e);
+    canvas.addEventListener('mousemove', pickColor);
+});
+window.addEventListener('mouseup', ()=>canvas.removeEventListener('mousemove', pickColor));
+alphaSlider.addEventListener('input',updatePreview);
+valueSlider.addEventListener('input',updatePreview);
+
+document.getElementById('prec2').addEventListener('click', ()=>{
+    precision=2;
+    document.getElementById('prec2').classList.add('active');
+    document.getElementById('prec4').classList.remove('active');
+    updatePreview();
+});
+document.getElementById('prec4').addEventListener('click', ()=>{
+    precision=4;
+    document.getElementById('prec4').classList.add('active');
+    document.getElementById('prec2').classList.remove('active');
+    updatePreview();
+});
+document.getElementById('showVec3').addEventListener('click', ()=>{
+    currentMode='vec3';
+    document.getElementById('showVec3').classList.add('active');
+    document.getElementById('showVec4').classList.remove('active');
+    updatePreview();
+});
+document.getElementById('showVec4').addEventListener('click', ()=>{
+    currentMode='vec4';
+    document.getElementById('showVec4').classList.add('active');
+    document.getElementById('showVec3').classList.remove('active');
+    updatePreview();
+});
+
+// Initial draw
+drawColorWheelWithMarker();
+updatePreview();
 </script>
-
 </body>
 </html>
-
