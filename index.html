@@ -1,55 +1,119 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Color Picker → vec3/vec4 (Dark Mode + Precision + Preview)</title>
+<title>Color Picker → vec3/vec4 (Dark Mode + Stylish UI + Alpha)</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/monolith.min.css"/>
 <style>
   body {
-    font-family: Arial; 
-    text-align: center; 
-    margin-top: 50px; 
-    background-color: #1e1e1e; 
+    font-family: 'Segoe UI', sans-serif; 
+    background-color: #121212; 
     color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
   }
-  #color-picker {
-    display: inline-block;
+
+  #container {
+    background: #1e1e1e;
+    padding: 25px 40px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    text-align: center;
+  }
+
+  h1 {
     margin-bottom: 20px;
+    font-weight: 500;
+    letter-spacing: 1px;
   }
+
   #preview {
-    width: 100px;
-    height: 50px;
-    margin: 10px auto;
-    border: 2px solid #f0f0f0;
-    background-color: #ff0000;
+    width: 180px;
+    height: 90px;
+    margin: 0 auto 15px auto;
+    border-radius: 10px;
+    border: 2px solid #444;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    color: #fff;
+    font-weight: bold;
   }
+
   #vecOutput {
     margin-top: 20px; 
-    font-size: 20px;
+    font-size: 16px;
+    background: #181818;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
   }
+
   button {
     margin: 5px;
-    padding: 5px 10px;
-    background-color: #333;
+    padding: 8px 14px;
+    background-color: #2d2d2d;
     color: #f0f0f0;
-    border: 1px solid #f0f0f0;
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+
+  button:hover {
+    background-color: #444;
+    transform: scale(1.05);
+  }
+
+  #color-picker {
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+  }
+
+  /* Pickr butonunu büyütme */
+  .pcr-button {
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 50% !important;
+    border: 2px solid #ff0000 !important;
+    box-shadow: 0 0 10px rgba(255,0,0,0.5) !important;
+    cursor: pointer;
+  }
+
+  /* Alpha slider */
+  #alphaSlider {
+    width: 180px;
+    margin-top: 10px;
   }
 </style>
 </head>
 <body>
 
-<h1>Color Picker (vec3/vec4)</h1>
+<div id="container">
+  <h1>🎨 Color Picker (vec3 / vec4)</h1>
 
-<div id="preview"></div>
-<div id="color-picker"></div>
+  <div id="preview">#FF0000<br>rgba(255,0,0,1)</div>
+  <div id="color-picker"></div>
 
-<div style="margin-top: 15px;">
-  <button id="prec2">2 Basamak</button>
-  <button id="prec4">4 Basamak</button>
+  <label>Alpha: <span id="alphaValue">1.00</span></label><br>
+  <input type="range" id="alphaSlider" min="0" max="1" step="0.01" value="1">
+
+  <div style="margin-top: 15px;">
+    <button id="prec2">2 Decimals</button>
+    <button id="prec4">4 Decimals</button>
+  </div>
+
+  <div id="vecOutput">vec3: -, vec4: -</div>
 </div>
-
-<div id="vecOutput">vec3: -, vec4: -</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr"></script>
 <script>
@@ -58,6 +122,8 @@ const vecOutput = document.getElementById('vecOutput');
 const prec2 = document.getElementById('prec2');
 const prec4 = document.getElementById('prec4');
 const preview = document.getElementById('preview');
+const alphaSlider = document.getElementById('alphaSlider');
+const alphaValueLabel = document.getElementById('alphaValue');
 
 const pickr = Pickr.create({
     el: '#color-picker',
@@ -65,8 +131,8 @@ const pickr = Pickr.create({
     default: '#ff0000',
     components: {
         preview: true,
-        opacity: true,
         hue: true,
+        opacity: true, // Pickr kendi alpha kontrolünü kullanıyoruz ama slider da olacak
         interaction: {
             hex: true,
             rgba: true,
@@ -76,29 +142,38 @@ const pickr = Pickr.create({
 });
 
 function updateOutput(rgba) {
+    const alpha = parseFloat(alphaSlider.value); // slider alpha
     const r = (rgba[0]/255).toFixed(precision);
     const g = (rgba[1]/255).toFixed(precision);
     const b = (rgba[2]/255).toFixed(precision);
-    const a = rgba[3].toFixed(precision);
+    const a = alpha.toFixed(precision);
+
     vecOutput.textContent = `vec3: (${r}, ${g}, ${b}), vec4: (${r}, ${g}, ${b}, ${a})`;
 
-    // Preview kutusunu güncelle
-    preview.style.backgroundColor = `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${rgba[3]})`;
+    const hex = pickr.getColor().toHEXA().toString();
+    const rgbCSS = `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${alpha})`;
+
+    preview.style.backgroundColor = rgbCSS;
+    preview.innerHTML = `${hex.toUpperCase()}<br>${rgbCSS}`;
+    alphaValueLabel.textContent = a;
 }
 
-// Renk değiştiğinde
+// Pickr rengini değiştirince
 pickr.on('change', (color) => {
     updateOutput(color.toRGBA());
+});
+
+// Alpha slider değişince
+alphaSlider.addEventListener('input', () => {
+    updateOutput(pickr.getColor().toRGBA());
 });
 
 // Precision butonları
 prec2.addEventListener('click', () => { precision = 2; updateOutput(pickr.getColor().toRGBA()); });
 prec4.addEventListener('click', () => { precision = 4; updateOutput(pickr.getColor().toRGBA()); });
 
-// Başlangıç değerini göster
 updateOutput(pickr.getColor().toRGBA());
 </script>
 
 </body>
 </html>
-
